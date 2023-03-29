@@ -1,0 +1,10 @@
+string task_name        # name
+string task_type        # BehaviourTree type: say, patrol, goto, etc (see bt_task_lib)
+string[] task_args      # args accprding to task_type
+bool task_priority      # 1/0: insert before/after current tasks
+int8 task_repetitions   # number of times to be executed (-1) indefinitely
+string task_impact      # none/reset. reset will re-initialize all the tasks after this one
+---
+bool success            # wether the task was created or not
+string task_id          # uuid (only on success)
+string error_msg        # msg (only on error)

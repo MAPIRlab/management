@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>task_manager</name>
+  <version>0.0.0</version>
+  <description>Behaviour Tree for managing high level robotic tasks</description>
+  <maintainer email="jgmonroy@uma.es">Javier Monroy</maintainer>
+  <license>TODO: License declaration</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>py_trees</exec_depend>
+  <exec_depend>py_trees_ros</exec_depend>
+  <exec_depend>task_manager_interfaces</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sys</exec_depend>
+  <exec_depend>ast</exec_depend>
+  <exec_depend>transforms3d</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>termcolor</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
