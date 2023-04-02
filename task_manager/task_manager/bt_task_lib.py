@@ -35,12 +35,13 @@ def subtree_say(task_name, dialogue)-> py_trees.behaviour.Behaviour:
         say_msg.data = dialogue
 
         # Create publisher
-        publisher = simplePublisher(
+        publisher = PublisherTask(
             name = task_name,
             topic_name = "/say",    # publish over /say (string) ROS2 topic
             topic_type = std_msgs.msg.String,
+            msg = say_msg,
             qos_profile = 1,
-            msg = say_msg
+            repetitions = 1
         )
         return publisher
 
@@ -122,34 +123,38 @@ def subtree_undock():
 
 
 # =========================================================================
-#               MAPIR BEHAVIOURS (extend py_trees_ros)
+#               MAPIR TASKS (extend py_trees_ros)
 # =========================================================================
-class simplePublisher(py_trees.behaviour.Behaviour):
+class PublisherTask(py_trees.behaviour.Behaviour):
     """
-    This behaviour just publish an incoming msg to the specified topic
+    This Task just publish an incoming msg to the specified topic
     This is a non-blocking behaviour -always returning:`~py_trees.common.Status.SUCCESS`.
 
     Args:
         name: name of the behaviour
         topic_name: name of the topic to connect to on ROS2
         topic_type: class of the message type (e.g. :obj:`std_msgs.msg.String`)
-        qos_profile: qos profile for the subscriber
         msg: content to be published
+        qos_profile: qos profile for the subscriber
+        repetitions: number of times to execute this task before prunning (-1 = inf)
     """
     def __init__(self,
                  name: str,
                  topic_name: str,
-                 topic_type: typing.Any,
+                 topic_type: typing.Any,                 
+                 msg: typing.Any,
                  qos_profile: rclpy.qos.QoSProfile,
-                 msg: typing.Any
+                 repetitions: int
                  ):
         super().__init__(name=name)
         self.topic_name = topic_name
-        self.topic_type = topic_type
-        self.qos_profile = qos_profile
+        self.topic_type = topic_type        
         self.msg_to_publish = msg
+        self.qos_profile = qos_profile
+        self.repetitions = repetitions
         self.publisher = None           # on setup
         self.node = None                # on setup
+        self.repetitions = 1            # default
 
     def setup(self, **kwargs):
         """
