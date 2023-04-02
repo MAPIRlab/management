@@ -11,48 +11,45 @@ import rclpy.node as Node
 import py_trees
 import py_trees.console as console
 import py_trees_ros
+import typing
 
+import std_msgs
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped
 
 
 # Check installed packages to offer sub-trees (tasks)
 # If related pkgs are not installed, we wont allow instantiations of such tasks
-try:
-    # Google Speech SRV
-    from speech.srv import say
-    google_speech_node_found = True
-except ImportError:
-    google_speech_node_found = False
 
 # =============================================================
 #                           SAY(dialogue)
 # =============================================================
-def subtree_say(task_name, dialogue):
+def subtree_say(task_name, dialogue)-> py_trees.behaviour.Behaviour:
     """
-    A subtree to implement a simple talk via service call
+    A subtree to implement a simple talk
+    By default just writes the msg to the "/say" topic
     """
     try:
-        if google_speech_node_found:
-            tasks_tree = py_trees.composites.Selector(name="Tasks_tree")
-            goal_msg = Say.Goal()
-            goal_msg.text_to_say = dialogue
-            say = py_trees_ros.actions.ActionClient(
-            name="SAY",
-            action_type=Say,
-            action_name="say",
-            action_goal=goal_msg,  # noqa
-            generate_feedback_message=lambda msg: "Speech"
-            )
-            tasks_tree.add_child(say)
-            return tasks_tree
-        else:
-            print(console.red + "[bt_manager] Google Speech module not found!" + console.reset)
-            print(console.red + "[bt_manager] Dialogue is: {}".format(str(dialogue))+ console.reset)
-            return py_trees.behaviours.Success(task_name)
+        # Create msg to publish
+        say_msg = std_msgs.msg.String()
+        say_msg.data = dialogue
+
+        # Create publisher
+        publisher = simplePublisher(
+            name = task_name,
+            topic_name = "/say",    # publish over /say (string) ROS2 topic
+            topic_type = std_msgs.msg.String,
+            qos_profile = 1,
+            msg = say_msg
+        )
+        return publisher
 
     except Exception as excp:
-        print ("[bt_manager] " + str(excp) + ". Skipping task")
+        job = py_trees.behaviours.Dummy()
+        job.name = "invalid"
+        job.feedback_message = "[subtree_say] Exception creating job: " + str(excp) + ". Skipping request."
+        print(console.red + job.feedback_message + console.reset)
+        return job
 
 
 def subtree_move():
@@ -122,3 +119,85 @@ def subtree_undock():
            
     tasks_tree.add_child(undock)
     return tasks_tree
+
+
+# =========================================================================
+#               MAPIR BEHAVIOURS (extend py_trees_ros)
+# =========================================================================
+class simplePublisher(py_trees.behaviour.Behaviour):
+    """
+    This behaviour just publish an incoming msg to the specified topic
+    This is a non-blocking behaviour -always returning:`~py_trees.common.Status.SUCCESS`.
+
+    Args:
+        name: name of the behaviour
+        topic_name: name of the topic to connect to on ROS2
+        topic_type: class of the message type (e.g. :obj:`std_msgs.msg.String`)
+        qos_profile: qos profile for the subscriber
+        msg: content to be published
+    """
+    def __init__(self,
+                 name: str,
+                 topic_name: str,
+                 topic_type: typing.Any,
+                 qos_profile: rclpy.qos.QoSProfile,
+                 msg: typing.Any
+                 ):
+        super().__init__(name=name)
+        self.topic_name = topic_name
+        self.topic_type = topic_type
+        self.qos_profile = qos_profile
+        self.msg_to_publish = msg
+        self.publisher = None           # on setup
+        self.node = None                # on setup
+
+    def setup(self, **kwargs):
+        """
+        Initialises the publisher.
+
+        Args:
+            **kwargs (:obj:`dict`): distribute arguments to this
+               behaviour and in turn, all of it's children
+
+        Raises:
+            KeyError: if a ros2 node isn't passed under the key 'node' in kwargs
+        """
+        try:
+            self.node = kwargs['node']
+        except KeyError as e:
+            error_message = "Didn't find 'node' in setup's kwargs [{}][{}]".format(self.name, self.__class__.__name__)
+            raise KeyError(error_message) from e  # 'direct cause' traceability
+        
+        # Create publisher
+        self.publisher = self.node.create_publisher(
+            msg_type = self.topic_type,
+            topic = self.topic_name,
+            qos_profile = self.qos_profile
+        )
+
+    def update(self):
+        """
+        Publish the specified msg on the requested ros2 topic
+
+        Raises:
+            TypeError if the msg_to_be_published is not of the required type
+
+        Returns:
+            :data:`~py_trees.common.Status.SUCCESS` (published)
+        """
+        self.logger.debug("%s.update()" % self.__class__.__name__)
+        try:
+            if isinstance(self.msg_to_publish, self.topic_type):
+                self.publisher.publish(self.msg_to_publish)
+            else:
+                raise TypeError("{} is not the required type [{}][{}]".format(
+                    self.msg_to_publish,
+                    self.topic_type,
+                    type(self.msg_to_publish))
+                )
+            self.feedback_message = "topic published"
+            return py_trees.common.Status.SUCCESS
+        except KeyError:
+            self.feedback_message = "Error when publishing"
+            return py_trees.common.Status.FAILURE
+
