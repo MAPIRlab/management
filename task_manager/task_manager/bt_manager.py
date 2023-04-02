@@ -38,9 +38,9 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         )
 
         # After each tick of the root tree, prune completed jobs
-        self.add_post_tick_handler(
-            self.prune_application_subtree_if_done
-        )
+        #self.add_post_tick_handler(
+        #    self.prune_application_subtree_if_done
+        #)
 
     #============================
     # CREATE ROOT
@@ -62,7 +62,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             children=None
         )
 
-        # Bt default the parallel will handle two permanent tasks.
+        # By default the parallel will handle two permanent tasks.
         # 1. Blackboard access (shared data among leafs) 
             # A sequence will progressively tick over each of its children 
             # so long as each child returns SUCCESS. If any child returns FAILURE or RUNNING 
@@ -122,7 +122,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         )
 
         # Init job identifiers (unique)
-        self.job=0
+        # self.job=0
     
 
     #============================
@@ -180,7 +180,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
 
 
     #============================
-    # ADD_JOB
+    # ADD_JOB (srv callback)
     #============================
     def add_job(self, req, res):
         """
@@ -194,40 +194,49 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         
         :return: 
             bool success            # wether the task was created or not
-            uint8[16] task_id       # uuid (only on success)
+            string task_id          # uuid (only on success)
             string error_msg        # msg (only on error)        
         """
 
-        # Create job according to available list types        
+        # 1. Init: Create the job according to available types of "tasks"
         job = self.create_job(req)
         job_type = py_trees.utilities.get_fully_qualified_name(job)
         print(console.green + "Creating job of type {}".format(str(job_type)) + console.reset)
         print(console.green + "Creating job of type {} and id:{}".format(str(job_type),str(job.id)) + console.reset)
-                
+
+
+        # 2. Setup: before inserting the new job into the tree, run its setup!
         if job.name == "invalid":
             # unable to create job
             res.success = False
             res.error_msg = job.feedback_message
+            return res
         else:
-            # before inserting, run its setup
             try:
-                job.setup()
+                # on setup, always pass the main ROS2 "node" handler
+                #job.setup(node=self.node)
+                py_trees.trees.setup(
+                    root = job,
+                    node = self.node
+                )
             except Exception as e:
-                console.logerror(console.red + "failed to setup {} job, aborting [{}]".formatstr(job.name),(str(e)) + console.reset)
-                #sys.exit(1)
+                console.logerror(console.red + "failed to setup job: {} , aborting with error: [{}]".formatstr(job.name),(str(e)) + console.reset)
+                res.success = False
+                res.error_msg = "error on job.setup: " + str(e)
+                return res
             
-            # insert job in "tasks" sequence
+            # 3. Insert the job in "tasks" sequence
             if req.task_priority:
-                self.root.children[-1].prepend_child(job)
+                self.root.children[-1].prepend_child(job)   # we add the task from the left
             else:
-                self.root.children[-1].add_child(job)
+                self.root.children[-1].add_child(job)       # we add the task from the right
 
             print(console.green + "SUCCESS on job creation: type:{}, name:{}, id:{}".format(str(job_type),str(job.name),str(job.id)) + console.reset)
             
             # srv response
             res.success = True
             res.task_id = job.id.hex
-        return res
+            return res
 
     #============================
     # CREATE_JOB
@@ -243,7 +252,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             :param req.task_repetitions (int)
             :param req.task_impact (string)        
         Returns:
-        :class:`~py_trees.behaviour.Behaviour`: subtree 
+            :class:`~py_trees.behaviour.Behaviour`: subtree 
         """
 
         # List of behaviours (jobs or task the robot can carry out)
@@ -290,46 +299,13 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         return response
 
 
-    def prune_application_subtree_if_done(self, tree):
+    def prune_application_subtree_if_done(self):
         """
-        Check if a job is running and if it has finished. If so, prune the job subtree from the tree.
+        Check if a job has finished (failure/success). If so, reduce in one its "repetitions" or prune the job 
+        subtree from the tree if already reached 0.
         Additionally, make a status report upon introspection of the tree.
-        Args:
-            tree (:class:`~py_trees.trees.BehaviourTree`): tree to investigate/manipulate.
-        """
-        if self.job != 0:
-            tree.prune_subtree(self.job.id)
-            self.job = 0
-        # executing
-        elif self.busy():
-            job = self.priorities.children[1]
-                # finished
-            if job.status == py_trees.common.Status.SUCCESS or job.status == py_trees.common.Status.FAILURE:
-                self.node.get_logger().info("{0}: finished [{1}]".format(job.name, job.status))
-                for node in job.iterate():
-                    node.shutdown()
-                tree.prune_subtree(job.id)
-
-    def busy(self):
-        """
-        Check if a job subtree exists and is running. Only one job is permitted at
-        a time, so it is sufficient to just check that the priority task selector
-        is of length three (note: there is always emergency and idle tasks
-        alongside the active job). When the job is not active, it is
-        pruned from the tree, leaving just two prioritised tasks (emergency and idle).
-
-        Returns:
-            :obj:`bool`: whether it is busy with a job subtree or not
-        """
-        return len(self.priorities.children) >= 3
-
-    @property
-    def priorities(self) -> py_trees.composites.Selector:
-        """
-        Returns the composite (:class:`~py_trees.composites.Selector`) that is
-        home to the prioritised list of tasks.
-        """
-        return self.root.children[-1]
+        """        
+    
 
 
 
