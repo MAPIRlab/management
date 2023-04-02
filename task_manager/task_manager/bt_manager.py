@@ -38,9 +38,9 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         )
 
         # After each tick of the root tree, prune completed jobs
-        #self.add_post_tick_handler(
-        #    self.prune_application_subtree_if_done
-        #)
+        self.add_post_tick_handler(
+            self.prune_application_subtree_if_done
+        )
 
     #============================
     # CREATE ROOT
@@ -98,12 +98,12 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         super().setup(timeout=timeout)
 
         # declare status srv (sever)
-        self._report_service = self.node.create_service(
-            srv_type = py_trees_srvs.StatusReport,
-            srv_name = "~/report",
-            callback = self.deliver_status_report,
-            qos_profile = rclpy.qos.qos_profile_services_default
-        )
+        #self._report_service = self.node.create_service(
+        #    srv_type = py_trees_srvs.StatusReport,
+        #    srv_name = "~/report",
+        #    callback = self.deliver_status_report,
+        #    qos_profile = rclpy.qos.qos_profile_services_default
+        #)
 
         # declare AddTask srv (server)
         self.addTask = self.node.create_service(
@@ -135,30 +135,40 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         :param req.task_id: The task id (string)
         :param req.info: Reason to remove the task (string)
         :return: ack (bool)
-        """
-        
+        """        
         if req.task_id == "all":
             res.ack = self.remove_all_tasks(req.info)
         else:
-            task_iter = 0
-            while len(self.root.children[-1].children) > task_iter:
-                job = self.root.children[-1].children[task_iter]
-                if job.id.hex == req.task_id:
-                    print(console.green + "[bt_manager] Task[{}]:{} killed by request".format(str(req.task_id), str(job.name)))
-                    # remove job
-                    for node in job.iterate():
-                        node.shutdown()
-                    self.prune_subtree(job.id)
-                    res.ack = True
-                    return res
-                else:
-                    task_iter += 1
-            
-            # Reaching this points mean the task id was not found!
-            print(console.red + "[bt_manager] Task[{}]: cannot be removed by request. TaskID not found!".format(str(req.task_id)) + console.reset)
-            res.ack = False        
-            return res
+            res.ack = self.remove_task_by_id(req.task_id)
     
+
+    #============================
+    # REMOVE_TASK_BY_ID
+    #============================
+    def remove_task_by_id(self, task_id):
+        """
+        Try to remove an existing task given its ID
+        :param task_id: The task id (uuid string)
+        :return: ack (bool)
+        """
+        task_iter = 0
+        while len(self.root.children[-1].children) > task_iter:
+            job = self.root.children[-1].children[task_iter]
+            if job.id.hex == task_id:
+                print(console.green + "[bt_manager] Task[{}]:{} terminated by request".format(str(task_id), str(job.name)))
+                # remove task
+                for node in job.iterate():
+                    node.shutdown()
+
+                self.prune_subtree(job.id)
+                return True
+            else:
+                task_iter += 1
+        
+        # Reaching this points mean the task id was not found!
+        print(console.red + "[bt_manager] Task[{}]: cannot be removed by request. TaskID not found!".format(str(req.task_id)) + console.reset)
+        return False
+        
     # ============================
     # REMOVE_ALL_JOBS
     # ============================
@@ -260,6 +270,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             if len(req.task_args) > 0:
                 dialogue = req.task_args[0]
                 job = bt_task_lib.subtree_say(req.task_name, dialogue)
+                job.repetitions = req.task_repetitions
                 return job
             else:
                 # incorrect arguments
@@ -276,36 +287,25 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             print(console.red + job.feedback_message + console.reset)
             return job
 
-
-    def deliver_status_report(
-            self,
-            unused_request: py_trees_srvs.StatusReport.Request,  # noqa
-            response: py_trees_srvs.StatusReport.Response  # noqa
-         ):
-        """
-        Prepare a status report for an external service client.
-
-        Args:
-            unused_request: empty request message
-        """
-        # last result value or none
-        last_result = self.blackboard_exchange.blackboard.get(name="scan_result")
-        if self.busy():
-            response.report = "executing"
-        elif self.root.tip().has_parent_with_name("Battery Emergency"):
-            response.report = "battery [last result: {}]".format(last_result)
-        else:
-            response.report = "idle [last result: {}]".format(last_result)
-        return response
+    
 
 
-    def prune_application_subtree_if_done(self):
+    def prune_application_subtree_if_done(self, tree):
         """
         Check if a job has finished (failure/success). If so, reduce in one its "repetitions" or prune the job 
         subtree from the tree if already reached 0.
         Additionally, make a status report upon introspection of the tree.
         """        
-    
+        task_iter = 0
+        for c in self.root.children[-1].children:
+            if c.status == py_trees.common.Status.SUCCESS or c.status == py_trees.common.Status.FAILURE:
+                try:
+                    c.repetitions = c.repetitions - 1
+                    if c.repetitions == 0:
+                        # task completed (prune it)
+                        self.remove_task_by_id(c.id.hex)
+                except Exception as excp:
+                    print(console.red + "[Prune] Exception when prunning Task[{}]:{}. Exception: {} ".format(str(req.task_id), str(job.name), str(excp)))
 
 
 
