@@ -14,6 +14,7 @@ import py_trees_ros
 import typing
 
 import std_msgs
+import diagnostic_msgs.msg
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped
 
@@ -30,15 +31,16 @@ def subtree_say(task_name, dialogue)-> py_trees.behaviour.Behaviour:
     By default just writes the msg to the "/say" topic
     """
     try:
-        # Create msg to publish
-        say_msg = std_msgs.msg.String()
-        say_msg.data = dialogue
+        # Create msg to publish (over MQTT)
+        say_msg = diagnostic_msgs.msg.KeyValue()
+        say_msg.key = "TTS"
+        say_msg.value = dialogue
 
         # Create publisher
         publisher = PublisherTask(
             name = task_name,
-            topic_name = "/say",    # publish over /say (string) ROS2 topic
-            topic_type = std_msgs.msg.String,
+            topic_name = "/ros2mqtt",    # publish over MQTT
+            topic_type = diagnostic_msgs.msg.KeyValue,
             msg = say_msg,
             qos_profile = 1,
             repetitions = 1
