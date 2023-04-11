@@ -166,7 +166,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 task_iter += 1
         
         # Reaching this points mean the task id was not found!
-        print(console.red + "[bt_manager] Task[{}]: cannot be removed by request. TaskID not found!".format(str(req.task_id)) + console.reset)
+        print(console.red + "[bt_manager] Task[{}]: cannot be removed by request. TaskID not found!".format(str(task_id)) + console.reset)
         return False
         
     # ============================
@@ -224,7 +224,6 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         else:
             try:
                 # on setup, always pass the main ROS2 "node" handler
-                #job.setup(node=self.node)
                 py_trees.trees.setup(
                     root = job,
                     node = self.node
@@ -305,7 +304,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                         # task completed (prune it)
                         self.remove_task_by_id(c.id.hex)
                 except Exception as excp:
-                    print(console.red + "[Prune] Exception when prunning Task[{}]:{}. Exception: {} ".format(str(req.task_id), str(job.name), str(excp)))
+                    print(console.red + "[Prune] Exception when prunning Task[{}]:{}. Exception: {} ".format(str(c.id.hex), str(c.name), str(excp)))
 
 
 
