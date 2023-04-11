@@ -264,12 +264,10 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             :class:`~py_trees.behaviour.Behaviour`: subtree 
         """
 
-        # List of behaviours (jobs or task the robot can carry out)
+        # say(dialogue)
         if req.task_type == "say":
             if len(req.task_args) > 0:
-                dialogue = req.task_args[0]
-                job = bt_task_lib.subtree_say(req.task_name, dialogue)
-                job.repetitions = req.task_repetitions
+                job = bt_task_lib.subtree_say(req)
                 return job
             else:
                 # incorrect arguments
@@ -278,8 +276,22 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}] - ignoring request".format(str(req.task_type)) 
                 print(console.red + job.feedback_message + console.reset)
                 return job
+        
+        # goto(pose)
+        elif req.task_type == "goto_pose":
+            if len(req.task_args) >= 7:
+                job = bt_task_lib.subtree_goto_pose(req)
+                return job
+            else:
+                # incorrect arguments
+                job = py_trees.behaviours.Dummy()
+                job.name = "invalid"
+                job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}] - ignoring request".format(str(req.task_type)) 
+                print(console.red + job.feedback_message + console.reset)
+                return job
+            
+        # unknown task_type  
         else:
-            # unknown task_type
             job = py_trees.behaviours.Dummy()
             job.name = "invalid"
             job.feedback_message = "[bt_manager] Failed to AddTask[{}] - task_type not found".format(str(req.task_name))
