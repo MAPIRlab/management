@@ -37,7 +37,7 @@ def subtree_say(req)-> py_trees.behaviour.Behaviour:
         say_msg.value = req.task_args[0]
 
         # Create Task publisher
-        publisher = PublisherTask(
+        publisher = TaskPublisher(
             name = req.task_name,
             topic_name = "/ros2mqtt",    # publish over MQTT
             topic_type = diagnostic_msgs.msg.KeyValue,
@@ -143,7 +143,7 @@ def subtree_undock():
 # =========================================================================
 #               MAPIR TASKS (extend py_trees_ros)
 # =========================================================================
-class PublisherTask(py_trees.behaviour.Behaviour):
+class TaskPublisher(py_trees.behaviour.Behaviour):
     """
     This Task just publish an incoming msg to the specified topic
     This is a non-blocking behaviour -always returning:`~py_trees.common.Status.SUCCESS`.
@@ -162,7 +162,7 @@ class PublisherTask(py_trees.behaviour.Behaviour):
                  topic_type: typing.Any,                 
                  msg: typing.Any,
                  qos_profile: rclpy.qos.QoSProfile,
-                 repetitions: int
+                 repetitions: int=1
                  ):
         super().__init__(name=name)
         self.topic_name = topic_name
@@ -223,3 +223,52 @@ class PublisherTask(py_trees.behaviour.Behaviour):
             self.feedback_message = "Error when publishing"
             return py_trees.common.Status.FAILURE
 
+
+
+class TaskActionClient(py_trees_ros.action_clients.FromConstant):
+    """
+    Convenience version of the action client that only ever sends the
+    same goal.
+
+    .. see-also: :class:`py_trees_ros.action_clients.FromBlackboard`
+
+    Args:
+        name: name of the behaviour
+        action_type: spec type for the action (e.g. move_base_msgs.action.MoveBase)
+        action_name: where you can find the action topics & services (e.g. "bob/move_base")
+        action_goal: the goal to send
+        generate_feedback_message: formatter for feedback messages, takes action_type.Feedback
+            messages and returns strings (default: None)
+        wait_for_server_timeout_sec: use negative values for a blocking but periodic check (default: -3.0)
+        repetitions: number of times to tic this task
+
+    .. note::
+       The default setting for timeouts (a negative value) will suit
+       most use cases. With this setting the behaviour will periodically check and
+       issue a warning if the server can't be found. Actually aborting the setup can
+       usually be left up to the behaviour tree manager.
+    """
+    def __init__(self,
+                 name: str,
+                 action_type: typing.Any,
+                 action_name: str,
+                 action_goal: typing.Any,
+                 generate_feedback_message: typing.Callable[[typing.Any], str]=None,
+                 wait_for_server_timeout_sec: float=-3.0,
+                 repetitions: int=1,
+                 ):
+        super().__init__(
+            name = name,
+            action_type = action_type,
+            action_name = action_name,
+            action_goal= action_goal,
+            generate_feedback_message=generate_feedback_message,
+            wait_for_server_timeout_sec=wait_for_server_timeout_sec
+        )
+        self.repetitions = repetitions
+        # parent already instantiated a blackboard client
+        self.blackboard.register_key(
+            key=key,
+            access=py_trees.common.Access.WRITE,
+        )
+        self.blackboard.set(name=key, value=action_goal)
