@@ -43,7 +43,7 @@ def subtree_say(req)-> py_trees.behaviour.Behaviour:
             topic_type = diagnostic_msgs.msg.KeyValue,
             msg = say_msg,
             qos_profile = 1,
-            repetitions = req.repetitions
+            repetitions = req.task_repetitions
         )
         return publisher
 
@@ -67,13 +67,13 @@ def subtree_goto_pose(req):
         wp = PoseStamped()
         wp.header.frame_id = "map"
         wp.header.stamp = Node.Clock().now().to_msg()
-        wp.pose.position.x = req.task_args[0]
-        wp.pose.position.y = req.task_args[1]
-        wp.pose.position.z = req.task_args[2]
-        wp.pose.orientation.x = req.task_args[3]
-        wp.pose.orientation.y = req.task_args[4]
-        wp.pose.orientation.z = req.task_args[5]
-        wp.pose.orientation.w = req.task_args[6]
+        wp.pose.position.x = float(req.task_args[0])
+        wp.pose.position.y = float(req.task_args[1])
+        wp.pose.position.z = float(req.task_args[2])
+        wp.pose.orientation.x = float(req.task_args[3])
+        wp.pose.orientation.y = float(req.task_args[4])
+        wp.pose.orientation.z = float(req.task_args[5])
+        wp.pose.orientation.w = float(req.task_args[6])
 
         # Create Action Goal
         goal_msg = NavigateToPose.Goal()
@@ -83,7 +83,7 @@ def subtree_goto_pose(req):
         move = py_trees_ros.actions.ActionClient(
             name = "goto_to_pose",
             action_type = NavigateToPose,
-            action_name = "navigate_to_pose", #navigation action server?
+            action_name = "navigate_to_pose", # navigation action server of the /bt_navigator?
             action_goal = goal_msg,
             generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining)
         )        
@@ -92,7 +92,7 @@ def subtree_goto_pose(req):
     except Exception as excp:
         job = py_trees.behaviours.Dummy()
         job.name = "invalid"
-        job.feedback_message = "[subtree_say] Exception creating job: " + str(excp) + ". Skipping request."
+        job.feedback_message = "[subtree_goto_pose] Exception creating job: " + str(excp) + ". Skipping request."
         print(console.red + job.feedback_message + console.reset)
         return job
 
