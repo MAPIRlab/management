@@ -279,6 +279,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         
         # goto(pose)
         elif req.task_type == "goto_pose":
+            # print(*req.task_args, sep = ", ")
             if len(req.task_args) >= 7:
                 job = bt_task_lib.subtree_goto_pose(req)
                 return job
@@ -286,7 +287,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 # incorrect arguments
                 job = py_trees.behaviours.Dummy()
                 job.name = "invalid"
-                job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}] - ignoring request".format(str(req.task_type)) 
+                job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}] - full pose (7) needed, {} params provided".format(str(req.task_type),len(req.task_args)) 
                 print(console.red + job.feedback_message + console.reset)
                 return job
             
