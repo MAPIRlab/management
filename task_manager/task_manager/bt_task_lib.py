@@ -87,15 +87,7 @@ def subtree_goto_pose(req):
             action_goal = goal_msg,
             generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining),
             repetitions = req.task_repetitions
-        )
-
-        #move = py_trees_ros.actions.ActionClient(
-        #    name = "goto_to_pose",
-        #    action_type = NavigateToPose,
-        #    action_name = "navigate_to_pose", # navigation action server of the /bt_navigator?
-        #    action_goal = goal_msg,
-        #    generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining)
-        #)        
+        )    
         return move
     
     except Exception as excp:
