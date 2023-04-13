@@ -80,13 +80,22 @@ def subtree_goto_pose(req):
         goal_msg.pose = wp
 
         # Create Task Action Client
-        move = py_trees_ros.actions.ActionClient(
+        move = TaskActionClient(
             name = "goto_to_pose",
             action_type = NavigateToPose,
             action_name = "navigate_to_pose", # navigation action server of the /bt_navigator?
             action_goal = goal_msg,
-            generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining)
-        )        
+            generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining),
+            repetitions = req.task_repetitions
+        )
+
+        #move = py_trees_ros.actions.ActionClient(
+        #    name = "goto_to_pose",
+        #    action_type = NavigateToPose,
+        #    action_name = "navigate_to_pose", # navigation action server of the /bt_navigator?
+        #    action_goal = goal_msg,
+        #    generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining)
+        #)        
         return move
     
     except Exception as excp:
@@ -265,10 +274,4 @@ class TaskActionClient(py_trees_ros.action_clients.FromConstant):
             generate_feedback_message=generate_feedback_message,
             wait_for_server_timeout_sec=wait_for_server_timeout_sec
         )
-        self.repetitions = repetitions
-        # parent already instantiated a blackboard client
-        self.blackboard.register_key(
-            key=key,
-            access=py_trees.common.Access.WRITE,
-        )
-        self.blackboard.set(name=key, value=action_goal)
+        self.repetitions = repetitions        
