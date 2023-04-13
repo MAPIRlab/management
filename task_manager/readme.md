@@ -33,4 +33,6 @@ In a nutshell, the bt_manager is the ROOT of the tree, and every task to be exec
 The bt_manager is in charge of positioning every task (branch) in the ROOT-tree according to its priority, and removing it if the permanence param is set to False.
 
 ## Dependencies
-sudo apt install ros-<rosdistro>-py-trees
+> `sudo apt install ros-rosdistro-py-trees`
+
+> `sudo apt install ros-rosdistro-py-trees-ros`
