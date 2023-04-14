@@ -13,10 +13,20 @@ import py_trees.console as console
 import py_trees_ros
 import typing
 
+# standar ROS2 msgs
 import std_msgs
 import diagnostic_msgs.msg
-from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped
+
+# Import here all the actions/srv/msgs the TaskManager must deal with
+# Consider that some functionalities may not be running (node not executted)
+# therefore, check imports to avoid runtime errors
+try:
+    from nav2_msgs.action import NavigateToPose
+    can_navigate = True
+except Exception as excp:
+    can_navigate = False
+
 
 
 # Check installed packages to offer sub-trees (tasks)
@@ -63,6 +73,10 @@ def subtree_goto_pose(req):
     A subtree to implement an action client for navigation    
     """
     try:
+        if not can_navigate:
+            # Nav2 not available, skip request
+            raise Exception("Nav2 not available.")
+        
         # Create pose msg       
         wp = PoseStamped()
         wp.header.frame_id = "map"
@@ -97,7 +111,11 @@ def subtree_goto_pose(req):
         print(console.red + job.feedback_message + console.reset)
         return job
 
-def subtree_patrol():
+
+# =============================================================
+#                           PATROL()
+# =============================================================
+def subtree_patrol(req):
 
     tasks_tree = py_trees.composites.Sequence(name="Tasks_tree")
 
@@ -124,21 +142,6 @@ def subtree_patrol():
     tasks_tree.add_children([undock,patrol])
     return tasks_tree
 
-def subtree_undock():
-
-    tasks_tree = py_trees.composites.Selector(name="Tasks_tree")
-    goal_msg = Undock.Goal()
-    goal_msg.undock = True
-    undock = py_trees_ros.actions.ActionClient(
-        name="Undock",
-        action_type=Undock,
-        action_name="undock",
-        action_goal=goal_msg,  # noqa
-        generate_feedback_message=lambda msg: "Undock"
-    )
-           
-    tasks_tree.add_child(undock)
-    return tasks_tree
 
 
 # =========================================================================
