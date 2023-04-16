@@ -263,6 +263,9 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         Returns:
             :class:`~py_trees.behaviour.Behaviour`: subtree 
         """
+        # Deftul value for task_repetitions
+        if req.task_repetitions == 0:
+            req.task_repetitions = 1
 
         # say(dialogue)
         if req.task_type == "say":
