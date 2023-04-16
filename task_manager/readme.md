@@ -36,3 +36,6 @@ The bt_manager is in charge of positioning every task (branch) in the ROOT-tree 
 > `sudo apt install ros-rosdistro-py-trees`
 
 > `sudo apt install ros-rosdistro-py-trees-ros`
+
+## Task_from_topic
+This node implementes a simple "parser" to allow instantation of new tasks from the content of a specified topic. Usually, this is used to offer a frinedly interface to external applications like MQTT. The string content will be parsed and then transformed to calls to the task_manager service to create/remove tasks.

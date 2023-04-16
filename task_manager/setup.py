@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'bt_manager = task_manager.bt_manager:main'            
+            'bt_manager = task_manager.bt_manager:main',
+            'task_from_topic = task_manager.task_from_topic:main'
         ],
     },
 )
