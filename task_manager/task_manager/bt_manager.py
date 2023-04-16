@@ -290,7 +290,21 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}] - full pose (7) needed, {} params provided".format(str(req.task_type),len(req.task_args)) 
                 print(console.red + job.feedback_message + console.reset)
                 return job
-            
+
+        # patrol(times)
+        elif req.task_type == "patrol":
+            # print(*req.task_args, sep = ", ")
+            if len(req.task_args) >= 1:
+                job = bt_task_lib.subtree_patrol(req)
+                return job
+            else:
+                # incorrect arguments
+                job = py_trees.behaviours.Dummy()
+                job.name = "invalid"
+                job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}]".format(str(req.task_type),len(req.task_args)) 
+                print(console.red + job.feedback_message + console.reset)
+                return job
+               
         # unknown task_type  
         else:
             job = py_trees.behaviours.Dummy()

@@ -18,19 +18,26 @@ import std_msgs
 import diagnostic_msgs.msg
 from geometry_msgs.msg import PoseStamped
 
-# Import here all the actions/srv/msgs the TaskManager must deal with
-# Consider that some functionalities may not be running (node not executted)
-# therefore, check imports to avoid runtime errors
+"""
+Import here all the actions/srv/msgs the TaskManager must deal with
+Consider that some utilities may not be availbale (node not executed)
+therefore, check imports to avoid runtime errors
+"""
+
+# NAV2 NavigateToPose
 try:
     from nav2_msgs.action import NavigateToPose
     can_navigate = True
 except Exception as excp:
     can_navigate = False
 
+# Patrol PatrolTimes
+try:
+    from patrol.action import PatrolTimes
+    can_patrol = True
+except Exception as excp:
+    can_patrol = False
 
-
-# Check installed packages to offer sub-trees (tasks)
-# If related pkgs are not installed, we wont allow instantiations of such tasks
 
 # =============================================================
 #                           SAY(dialogue)
@@ -47,7 +54,7 @@ def subtree_say(req)-> py_trees.behaviour.Behaviour:
         say_msg.value = req.task_args[0]
 
         # Create Task publisher
-        publisher = TaskPublisher(
+        subtree = TaskPublisher(
             name = req.task_name,
             topic_name = "/ros2mqtt",    # publish over MQTT
             topic_type = diagnostic_msgs.msg.KeyValue,
@@ -55,7 +62,7 @@ def subtree_say(req)-> py_trees.behaviour.Behaviour:
             qos_profile = 1,
             repetitions = req.task_repetitions
         )
-        return publisher
+        return subtree
 
     except Exception as excp:
         job = py_trees.behaviours.Dummy()
@@ -70,14 +77,17 @@ def subtree_say(req)-> py_trees.behaviour.Behaviour:
 # =============================================================
 def subtree_goto_pose(req):
     """
-    A subtree to implement an action client for navigation    
+    A subtree to implement an action client for navigation NavigateToPose   
     """
     try:
         if not can_navigate:
             # Nav2 not available, skip request
             raise Exception("Nav2 not available.")
         
-        # Create pose msg       
+        # Create NavigateToPose Goal
+        goal_msg = NavigateToPose.Goal()
+
+        # Fill pose msg
         wp = PoseStamped()
         wp.header.frame_id = "map"
         wp.header.stamp = Node.Clock().now().to_msg()
@@ -88,13 +98,10 @@ def subtree_goto_pose(req):
         wp.pose.orientation.y = float(req.task_args[4])
         wp.pose.orientation.z = float(req.task_args[5])
         wp.pose.orientation.w = float(req.task_args[6])
-
-        # Create Action Goal
-        goal_msg = NavigateToPose.Goal()
         goal_msg.pose = wp
 
         # Create Task Action Client
-        move = TaskActionClient(
+        subtree = TaskActionClient(
             name = "goto_to_pose",
             action_type = NavigateToPose,
             action_name = "navigate_to_pose", # navigation action server of the /bt_navigator?
@@ -102,7 +109,7 @@ def subtree_goto_pose(req):
             generate_feedback_message = lambda msg: "{}".format(msg.feedback.distance_remaining),
             repetitions = req.task_repetitions
         )    
-        return move
+        return subtree
     
     except Exception as excp:
         job = py_trees.behaviours.Dummy()
@@ -116,31 +123,37 @@ def subtree_goto_pose(req):
 #                           PATROL()
 # =============================================================
 def subtree_patrol(req):
+    """
+    A subtree to implement an action client for PatrolTimes
+    """
+    try:
+        if not can_patrol:
+            # Patrol node not available, skip request
+            raise Exception("Patrol node not available.")
+        
+        # Create PatrolTimes Goal
+        goal_msg = PatrolTimes.Goal()
+        goal_msg.times = int(req.task_args[0])      #times to repeat the patrol 
 
-    tasks_tree = py_trees.composites.Sequence(name="Tasks_tree")
-
-    goal_msg = Undock.Goal()
-    goal_msg.undock = True
-    undock = py_trees_ros.actions.ActionClient(
-        name="Undock",
-        action_type=Undock,
-        action_name="undock",
-        action_goal=goal_msg,  # noqa
-        generate_feedback_message=lambda msg: "Undock"
-    )
-           
-    pgoal_msg = Patrol.Goal()
-    pgoal_msg.patrol = True
-    patrol = py_trees_ros.actions.ActionClient(
-        name="Patrol",
-        action_type=Patrol,
-        action_name="patrol",
-        action_goal=pgoal_msg,  # noqa
-        generate_feedback_message=lambda msg: "Patrolling"
-    )
+        # Create Task Action Client
+        subtree = TaskActionClient(
+            name = "patrol",
+            action_type = PatrolTimes,
+            action_name = "patrol_times",
+            action_goal = goal_msg,
+            generate_feedback_message = lambda msg: "{}".format(msg.feedback.times_completed),
+            repetitions = req.task_repetitions
+        )    
+        return subtree
     
-    tasks_tree.add_children([undock,patrol])
-    return tasks_tree
+    except Exception as excp:
+        job = py_trees.behaviours.Dummy()
+        job.name = "invalid"
+        job.feedback_message = "[subtree_goto_pose] Exception creating job: " + str(excp) + ". Skipping request."
+        print(console.red + job.feedback_message + console.reset)
+        return job
+
+    
 
 
 
