@@ -10,6 +10,7 @@ from task_manager_interfaces.srv import AddTask, RemoveTask
 from . import bt_task_lib
 
 import std_msgs.msg as std_msgs
+import diagnostic_msgs.msg
 import uuid
 import operator
 import sys
@@ -121,8 +122,12 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
             qos_profile = rclpy.qos.qos_profile_services_default
         )
 
-        # Init job identifiers (unique)
-        # self.job=0
+        # publisher of task results
+        self.pub_results = self.node.create_publisher(
+            diagnostic_msgs.msg.KeyValue,
+            "ros2mqtt",
+            10
+        )
     
 
     #============================
@@ -340,7 +345,13 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
 
     def publish_task_result(self, c):
         # A task has been completed. Before being pruned report results
-        print(console.red + "[Result] publishing over ros2mqtt the task result")
+        print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.feedback_message)))
+        
+        # Publish over MQTT
+        msg = diagnostic_msgs.msg.KeyValue()
+        msg.key = "tasks_results"
+        msg.value = "\"task_id\":\"{}\", \"task_name\":\"{}\", \"task_result\":\"{}\"".format(str(c.id.hex), str(c.name), str(c.feedback_message))
+        self.pub_results.publish(msg)
 
 
 
