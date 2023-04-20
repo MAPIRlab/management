@@ -40,12 +40,13 @@ class FromTopic(Node):
         # mqtt2ros is a shared topic
         # Do only attend msgs with key "tasks"
         if msg.key == "tasks":
-            self.get_logger().info("I heard: " + str(msg.key)  + ": " + msg.value)
+            self.get_logger().info("I heard [" + str(msg.key)  + "]: " + msg.value)
 
             # Parse JSON
             # AddTask example: value = '{ "task_name":"hablar", "task_type":"say", "task_args":["","",""], "task_priority": false, "task_repetitions": 1}'
             # RemoveTask example: value = '{ "task_id":"lkh1lkjh2olilhmhio92343k4", "info":"cancelacion por usuario"}'
             try:
+                
                 # parse msg.value as a Python dictionary:
                 d = json.loads(msg.value)
 
@@ -79,8 +80,11 @@ class FromTopic(Node):
                     
                     # Call AddTask srv
                     self.future = self.srv_cli.call_async(self.srv_req)
-                    rclpy.spin_until_future_complete(self, self.future)
-                    self.get_logger().info("AddTask service result: " + str(self.future.result()))
+                    self.get_logger().info("Called TaskManager addTask srv. Waiting response...")
+                    # cant wait for response inside a callback!
+                    #rclpy.spin_until_future_complete(self, self.future)
+                    if self.future.done():
+                        self.get_logger().info("AddTask service result: " + str(self.future.result()))
     
                 else:
                     raise Exception("task_type not defined")    
