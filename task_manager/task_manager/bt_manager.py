@@ -331,10 +331,16 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 try:
                     c.repetitions = c.repetitions - 1
                     if c.repetitions == 0:
-                        # task completed (prune it)
+                        # task completed (report result)
+                        self.publish_task_result(c)
+                        # Then prune it
                         self.remove_task_by_id(c.id.hex)
                 except Exception as excp:
                     print(console.red + "[Prune] Exception when prunning Task[{}]:{}. Exception: {} ".format(str(c.id.hex), str(c.name), str(excp)))
+
+    def publish_task_result(self, c):
+        # A task has been completed. Before being pruned report results
+        print(console.red + "[Result] publishing over ros2mqtt the task result")
 
 
 
