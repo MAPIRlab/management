@@ -285,7 +285,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 print(console.red + job.feedback_message + console.reset)
                 return job
         
-        # goto(pose)
+        # goto_pose
         elif req.task_type == "goto_pose":
             # print(*req.task_args, sep = ", ")
             if len(req.task_args) >= 7:
@@ -347,7 +347,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         # A task has been completed. Before being pruned report results
         print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.feedback_message)))
         
-        # Publish over MQTT
+        # Publish over MQTT (/ros2mqtt topic)
         msg = diagnostic_msgs.msg.KeyValue()
         msg.key = "tasks_results"
         msg.value = "\"task_id\":\"{}\", \"task_name\":\"{}\", \"task_status\":\"{}\", \"task_result\":\"{}\"".format(str(c.id.hex), str(c.name), str(c.status), str(c.feedback_message))

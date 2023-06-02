@@ -114,6 +114,7 @@ class FromTopic(Node):
                 else:
                     incomplete_futures.append(f)
             self.srv_futures = incomplete_futures
+            
 #===============================0
 #               MAIN
 #===============================0

@@ -155,6 +155,24 @@ def subtree_patrol(req):
 
     
 
+# =============================================================
+#                           GET_MAP()
+# =============================================================
+def subtree_get_map(req):
+    """
+    A subtree to implement a service client for /map_server/map
+    """
+    try:
+        # Create /map requet
+        
+        return subtree
+    
+    except Exception as excp:
+        job = py_trees.behaviours.Dummy()
+        job.name = "invalid"
+        job.feedback_message = "[subtree_goto_pose] Exception creating job: " + str(excp) + ". Skipping request."
+        print(console.red + job.feedback_message + console.reset)
+        return job
 
 
 # =========================================================================
@@ -240,6 +258,127 @@ class TaskPublisher(py_trees.behaviour.Behaviour):
             self.feedback_message = "Error when publishing"
             return py_trees.common.Status.FAILURE
 
+
+
+class TaskSrvClient(py_trees.behaviour.Behaviour):
+    """
+    This Task calls a service passing as input a msg and returning the reply
+    This is a blocking behaviour until the service response arrives
+
+    Args:
+        name: name of the behaviour
+        srv_name: name of the service to connect to on ROS2
+        srv_type: class of the message type (e.g. :obj:`std_msgs.msg.String`)
+        srv_request: content used in the request call
+        wait_for_server_timeout_sec: use negative values for a blocking but periodic check (default: -3.0)
+        repetitions: number of times to execute this task before prunning (-1 = inf)
+    """
+    def __init__(self,
+                 name: str,
+                 srv_name: str,
+                 srv_type: typing.Any,                 
+                 srv_request: typing.Any,
+                 wait_for_server_timeout_sec: float=-3.0,
+                 repetitions: int=1
+                 ):
+        super().__init__(name=name)
+        self.srv_name = srv_name
+        self.srv_type = srv_type        
+        self.srv_request = srv_request
+        self.wait_for_server_timeout_sec = wait_for_server_timeout_sec
+        self.repetitions = repetitions
+        self.node = None                 # on setup
+        self.srv_client = None           # on setup
+
+    def setup(self, **kwargs):
+        """
+        Setup the service client.
+
+        Args:
+            **kwargs (:obj:`dict`): distribute arguments to this
+               behaviour and in turn, all of it's children
+
+        Raises:
+            KeyError: if a ros2 node isn't passed under the key 'node' in kwargs
+        """
+        try:
+            self.node = kwargs['node']
+        except KeyError as e:
+            error_message = "Didn't find 'node' in setup's kwargs [{}][{}]".format(self.name, self.__class__.__name__)
+            raise KeyError(error_message) from e  # 'direct cause' traceability
+        
+        # Create service client
+        self.srv_client = self.node.create_client(
+            srv_type = self.srv_type,
+            srv_name = self.srv_name
+        )
+
+        # Wait for service server
+        if self.wait_for_server_timeout_sec > 0.0:
+            result = self.srv_client.wait_for_service(timeout_sec = self.wait_for_server_timeout_sec)
+        else:
+            iterations = 0
+            period_sec = -1.0*self.wait_for_server_timeout_sec
+            while not result:
+                iterations += 1
+                result = self.srv_client.wait_for_service(timeout_sec=period_sec)
+                if not result:
+                    self.node.get_logger().warning(
+                        "waiting for service server ... [{}s][{}][{}]".format(
+                            iterations * period_sec,
+                            self.srv_name,
+                            self.qualified_name
+                        )
+                    )
+        if not result:
+            self.feedback_message = "timed out waiting for the srv server [{}]".format(self.srv_name)
+            self.node.get_logger().error("{}[{}]".format(self.feedback_message, self.qualified_name))
+            raise exceptions.TimedOutError(self.feedback_message)
+        else:
+            self.feedback_message = "... connected to srv server [{}]".format(self.srv_name)
+            self.node.get_logger().info("{}[{}]".format(self.feedback_message, self.qualified_name))
+        
+    
+    def initialise(self):
+        """
+        Reset the internal variables and kick off a new srv request.
+        """
+        self.logger.debug("{}.initialise()".format(self.qualified_name))
+
+        # initialise some temporary variables
+        self.srv_future = None        
+
+        try:
+            self.srv_future = self.srv_client.call_async(self.srv_request)
+            self.feedback_message = "sending goal ..."            
+        except KeyError:
+            pass  # self.send_goal_future will be None, check on that
+
+
+    def update(self):
+        """
+        Check only to see whether the underlying srv server has
+        succeeded, is running, or has cancelled/aborted for some reason and
+        map these to the usual behaviour return states.
+
+        Returns:
+            :class:`py_trees.common.Status`
+        """
+        self.logger.debug("{}.update()".format(self.qualified_name))
+
+        if self.srv_future is None:
+            self.feedback_message = "no srv_request to send"
+            return py_trees.common.Status.FAILURE
+        
+        if self.srv_future.done():
+            res = self.srv_future.result()
+            self.get_logger().info("Received service result: {}".format(res))
+            # keep result
+            self.feedback_message = res
+            return py_trees.common.Status.SUCCESS
+        else:
+            return py_trees.common.Status.RUNNING
+        
 
 
 class TaskActionClient(py_trees_ros.action_clients.FromConstant):
