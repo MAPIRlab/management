@@ -160,7 +160,7 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
         while len(self.root.children[-1].children) > task_iter:
             job = self.root.children[-1].children[task_iter]
             if job.id.hex == task_id:
-                print(console.green + "[bt_manager] Task[{}]:{} terminated by request".format(str(task_id), str(job.name)))
+                print(console.green + "[bt_manager] Task[{}]:{} terminated.".format(str(task_id), str(job.name)))
                 # remove task
                 for node in job.iterate():
                     node.shutdown()
