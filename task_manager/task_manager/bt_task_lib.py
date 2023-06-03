@@ -17,6 +17,7 @@ import typing
 import std_msgs
 import diagnostic_msgs.msg
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import OccupancyGrid
 
 """
 Import here all the actions/srv/msgs the TaskManager must deal with
@@ -30,6 +31,13 @@ try:
     can_navigate = True
 except Exception as excp:
     can_navigate = False
+
+# NAV MapServer/GetMap
+try:
+    from nav_msgs.srv import GetMap
+    can_get_map = True
+except Exception as excp:
+    can_get_map = False
 
 # Patrol PatrolTimes
 try:
@@ -163,14 +171,23 @@ def subtree_get_map(req):
     A subtree to implement a service client for /map_server/map
     """
     try:
-        # Create /map requet
+        # Create map_server/map requet (Empty)
         
+        # Create Task service Client
+        subtree = TaskSrvClient(
+            name = "get_map",
+            srv_type = GetMap,
+            srv_name = "/map_server/map",
+            srv_request = GetMap.Request(),
+            wait_for_server_timeout_sec = -3.0,
+            repetitions = req.task_repetitions
+        )    
         return subtree
     
     except Exception as excp:
         job = py_trees.behaviours.Dummy()
         job.name = "invalid"
-        job.feedback_message = "[subtree_goto_pose] Exception creating job: " + str(excp) + ". Skipping request."
+        job.feedback_message = "[subtree_get_map] Exception creating job: " + str(excp) + ". Skipping request."
         print(console.red + job.feedback_message + console.reset)
         return job
 
@@ -319,6 +336,7 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
         else:
             iterations = 0
             period_sec = -1.0*self.wait_for_server_timeout_sec
+            result = None
             while not result:
                 iterations += 1
                 result = self.srv_client.wait_for_service(timeout_sec=period_sec)
@@ -372,9 +390,9 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
         
         if self.srv_future.done():
             res = self.srv_future.result()
-            self.get_logger().info("Received service result: {}".format(res))
-            # keep result
-            self.feedback_message = res
+            self.node.get_logger().info("Received service result: {}".format(res))
+            # There is no common response type
+            self.feedback_message = "{}".format(res)
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING

@@ -312,7 +312,13 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 job.feedback_message = "[bt_manager] Incorrect number of parameters for task [{}]".format(str(req.task_type),len(req.task_args)) 
                 print(console.red + job.feedback_message + console.reset)
                 return job
-               
+
+        # get_map()
+        elif req.task_type == "get_map":
+            # print(*req.task_args, sep = ", ")
+            job = bt_task_lib.subtree_get_map(req)
+            return job
+                 
         # unknown task_type  
         else:
             job = py_trees.behaviours.Dummy()
