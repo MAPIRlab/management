@@ -12,6 +12,8 @@ import py_trees
 import py_trees.console as console
 import py_trees_ros
 import typing
+import json
+import numpy
 
 # standar ROS2 msgs
 import std_msgs
@@ -173,6 +175,20 @@ def subtree_get_map(req):
     try:
         # Create map_server/map requet (Empty)
         
+        # Set here the function to be called once the task is completed
+        def on_task_done(status,result):
+            # parse map, resolution and origin to json
+            # result --> nav_msgs/GetMap Service_Response
+            print("on_task_done(get_map)")
+            msg = {}
+            msg["map"] = result.map.data.tolist()   #int8[]
+            msg["resolution"] = result.map.info.resolution
+            msg["width"] = result.map.info.width
+            msg["height"] = result.map.info.height
+            msg["origin"] = [result.map.info.origin.position.x, result.map.info.origin.position.y]
+            return json.dumps(msg)
+        
+
         # Create Task service Client
         subtree = TaskSrvClient(
             name = "get_map",
@@ -180,7 +196,8 @@ def subtree_get_map(req):
             srv_name = "/map_server/map",
             srv_request = GetMap.Request(),
             wait_for_server_timeout_sec = -3.0,
-            repetitions = req.task_repetitions
+            repetitions = req.task_repetitions,
+            on_task_done = on_task_done
         )    
         return subtree
     
@@ -214,7 +231,8 @@ class TaskPublisher(py_trees.behaviour.Behaviour):
                  topic_type: typing.Any,                 
                  msg: typing.Any,
                  qos_profile: rclpy.qos.QoSProfile,
-                 repetitions: int=1
+                 repetitions: int=1,
+                 on_task_done = None
                  ):
         super().__init__(name=name)
         self.topic_name = topic_name
@@ -222,6 +240,7 @@ class TaskPublisher(py_trees.behaviour.Behaviour):
         self.msg_to_publish = msg
         self.qos_profile = qos_profile
         self.repetitions = repetitions
+        self.on_task_done = on_task_done
         self.publisher = None           # on setup
         self.node = None                # on setup
 
@@ -269,7 +288,7 @@ class TaskPublisher(py_trees.behaviour.Behaviour):
                     self.topic_type,
                     type(self.msg_to_publish))
                 )
-            self.feedback_message = "topic published"
+            self.feedback_message = "Topic published"
             return py_trees.common.Status.SUCCESS
         except KeyError:
             self.feedback_message = "Error when publishing"
@@ -295,6 +314,7 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
                  srv_name: str,
                  srv_type: typing.Any,                 
                  srv_request: typing.Any,
+                 on_task_done: typing.Any,
                  wait_for_server_timeout_sec: float=-3.0,
                  repetitions: int=1
                  ):
@@ -304,8 +324,10 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
         self.srv_request = srv_request
         self.wait_for_server_timeout_sec = wait_for_server_timeout_sec
         self.repetitions = repetitions
+        self.on_task_done = on_task_done # function to call on finish
         self.node = None                 # on setup
         self.srv_client = None           # on setup
+        self.result = None               # on finish
 
     def setup(self, **kwargs):
         """
@@ -389,10 +411,13 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
         
         if self.srv_future.done():
-            res = self.srv_future.result()
-            self.node.get_logger().info("Received service result: {}".format(res))
-            # There is no common response type
-            self.feedback_message = "{}".format(res)
+            # get srv result
+            self.result = self.srv_future.result()  # unknown type
+            #self.node.get_logger().info("Received service result: {}".format(res))
+            
+            # There is no common response type (hard to parse)
+            #self.feedback_message = "{}".format(res)
+            self.feedback_message = "srv call completed"
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
@@ -427,9 +452,10 @@ class TaskActionClient(py_trees_ros.action_clients.FromConstant):
                  action_type: typing.Any,
                  action_name: str,
                  action_goal: typing.Any,
+                 on_task_done = typing.Any,
                  generate_feedback_message: typing.Callable[[typing.Any], str]=None,
                  wait_for_server_timeout_sec: float=-3.0,
-                 repetitions: int=1,
+                 repetitions: int=1
                  ):
         super().__init__(
             name = name,
@@ -439,4 +465,5 @@ class TaskActionClient(py_trees_ros.action_clients.FromConstant):
             generate_feedback_message=generate_feedback_message,
             wait_for_server_timeout_sec=wait_for_server_timeout_sec
         )
-        self.repetitions = repetitions        
+        self.repetitions = repetitions
+        self.on_task_done = on_task_done

@@ -14,6 +14,7 @@ import diagnostic_msgs.msg
 import uuid
 import operator
 import sys
+import json
 
 
 
@@ -349,14 +350,27 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
                 except Exception as excp:
                     print(console.red + "[Prune] Exception when prunning Task[{}]:{}. Exception: {} ".format(str(c.id.hex), str(c.name), str(excp)))
 
+    #============================
+    # PUBLISH_TASK_RESULTS
+    #============================
     def publish_task_result(self, c):
-        # A task has been completed. Before being pruned report results
-        print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.feedback_message)))
+        # A task has been completed. 
+        
+        # Before being pruned report results as json (if any)
+        if c.on_task_done is not None:
+            c.feedback_message = c.on_task_done(c.status, c.result)
+        #print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.feedback_message)))
         
         # Publish over MQTT (/ros2mqtt topic)
         msg = diagnostic_msgs.msg.KeyValue()
         msg.key = "tasks_results"
-        msg.value = "\"task_id\":\"{}\", \"task_name\":\"{}\", \"task_status\":\"{}\", \"task_result\":\"{}\"".format(str(c.id.hex), str(c.name), str(c.status), str(c.feedback_message))
+        # set as dict --> json
+        data = {}
+        data["task_id"] = str(c.id.hex)
+        data["task_name"] = str(c.name)
+        data["task_status"] = str(c.status)
+        data["task_result"] = str(c.feedback_message)
+        msg.value = json.dumps(data)
         self.pub_results.publish(msg)
 
 
