@@ -351,12 +351,14 @@ class DynamicApplicationTree(py_trees_ros.trees.BehaviourTree):
 
     def publish_task_result(self, c):
         # A task has been completed. Before being pruned report results
-        print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.feedback_message)))
+        print(console.green + "[Result] Task [{}] ended with result: {}".format(str(c.name), str(c.status)))
         
         # Publish over MQTT (/ros2mqtt topic)
         msg = diagnostic_msgs.msg.KeyValue()
         msg.key = "tasks_results"
         msg.value = "\"task_id\":\"{}\", \"task_name\":\"{}\", \"task_status\":\"{}\", \"task_result\":\"{}\"".format(str(c.id.hex), str(c.name), str(c.status), str(c.feedback_message))
+        msg.value = "{" + msg.value + "}"
+        # print(console.green + "[Result] is: {}".format(msg.value))
         self.pub_results.publish(msg)
 
 

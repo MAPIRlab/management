@@ -390,9 +390,10 @@ class TaskSrvClient(py_trees.behaviour.Behaviour):
         
         if self.srv_future.done():
             res = self.srv_future.result()
-            self.node.get_logger().info("Received service result: {}".format(res))
-            # There is no common response type
-            self.feedback_message = "{}".format(res)
+            #self.node.get_logger().info("Received service result: {}".format(res))
+            
+            # There is no common response type, so return "all"
+            self.feedback_message = "{}".format(str(res))
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
