@@ -464,5 +464,6 @@ class TaskActionClient(py_trees_ros.action_clients.FromConstant):
             action_goal= action_goal,
             generate_feedback_message=generate_feedback_message,
             wait_for_server_timeout_sec=wait_for_server_timeout_sec
+        )
         self.repetitions = repetitions
         self.on_task_done = on_task_done
